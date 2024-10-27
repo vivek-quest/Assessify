@@ -180,7 +180,7 @@ class InstituteService {
             if (!interview) throw new Error('Interview not found');
 
             const filter = { interview: interviewId, candidate: candidateId };
-            console.log({[sortBy]: sortOrder})
+
             if (status) filter.status = status;
             const skip = (page - 1) * limit;
             const attempts = await Attempt.find(filter).sort({ [sortBy]: sortOrder }).select('-metadata').skip(skip).limit(limit);
