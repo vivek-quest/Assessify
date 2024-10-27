@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Mail, Lock, User, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { BACKEND_URL } from '../assets/config';
+import axios from 'axios';
 
 const LoginPage = () => {
     const [isLogin, setIsLogin] = useState(true);
-    const [signupType, setSignupType] = useState('CANDIDATE');
     const [formDetails, setFormDetails] = useState({
-        fullName: '',
+        name: '',
         email: '',
         password: '',
-        instituteName: ''
+        role: 'CANDIDATE'
     });
     const [isRemember, setIsRemember] = useState(false);
 
@@ -40,6 +41,14 @@ const LoginPage = () => {
             if (isRemember) {
                 localStorage.setItem('userDetails', JSON.stringify(formDetails));
             }
+
+            let res = await axios.post(`${BACKEND_URL}/auth/signup`, formDetails);
+            // if (res.successful) {
+            //     toast.success('Login successful');
+            //     window.location.href = '/dashboard';
+            // } else {
+            //     toast.error(res.message);
+            // }
         } catch (error) {
             console.error('Login error', error);
             toast.error('Something went wrong, please try again');
@@ -48,11 +57,11 @@ const LoginPage = () => {
 
     const handleRegister = async () => {
         try {
-            if (signupType === 'CANDIDATE' && (!formDetails.fullName || !formDetails.email || !formDetails.password)) {
+            if (formDetails.role === 'CANDIDATE' && (!formDetails.name || !formDetails.email || !formDetails.password)) {
                 toast.error('Please fill out full name, email, and password');
                 return;
             }
-            if (signupType === 'INSTITUTE' && (!formDetails.instituteName || !formDetails.email || !formDetails.password)) {
+            if (formDetails.role === 'INSTITUTE' && (!formDetails.name || !formDetails.email || !formDetails.password)) {
                 toast.error('Please fill out institute name, email, and password');
                 return;
             }
@@ -66,11 +75,11 @@ const LoginPage = () => {
         if (isLogin) {
             return !formDetails.email || !formDetails.password;
         }
-        if (signupType === 'CANDIDATE') {
-            return !formDetails.fullName || !formDetails.email || !formDetails.password;
+        if (formDetails.role === 'CANDIDATE') {
+            return !formDetails.name || !formDetails.email || !formDetails.password;
         }
-        if (signupType === 'INSTITUTE') {
-            return !formDetails.instituteName || !formDetails.email || !formDetails.password;
+        if (formDetails.role === 'INSTITUTE') {
+            return !formDetails.name || !formDetails.email || !formDetails.password;
         }
         return false;
     };
@@ -128,8 +137,8 @@ const LoginPage = () => {
                                             <input
                                                 type="radio"
                                                 value="CANDIDATE"
-                                                checked={signupType === 'CANDIDATE'}
-                                                onChange={() => setSignupType('CANDIDATE')}
+                                                checked={formDetails.role === 'CANDIDATE'}
+                                                onChange={() => setFormDetails({ ...formDetails, role: 'CANDIDATE' })}
                                                 className="text-red-600 focus:ring-red-500"
                                             />
                                             <span className="ml-2 text-gray-700">Candidate</span>
@@ -138,8 +147,8 @@ const LoginPage = () => {
                                             <input
                                                 type="radio"
                                                 value="INSTITUTE"
-                                                checked={signupType === 'INSTITUTE'}
-                                                onChange={() => setSignupType('INSTITUTE')}
+                                                checked={formDetails.role === 'INSTITUTE'}
+                                                onChange={() => setFormDetails({ ...formDetails, role: 'INSTITUTE' })}
                                                 className="text-red-600 focus:ring-red-500"
                                             />
                                             <span className="ml-2 text-gray-700">Institute</span>
@@ -147,7 +156,7 @@ const LoginPage = () => {
                                     </div>
                                 </div>
 
-                                {signupType === 'INSTITUTE' && (
+                                {formDetails.role === 'INSTITUTE' && (
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Institute Name</label>
                                         <div className="relative">
@@ -156,11 +165,11 @@ const LoginPage = () => {
                                                 type="text"
                                                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:outline-0"
                                                 placeholder="Institute Name"
-                                                value={formDetails.instituteName}
+                                                value={formDetails.name}
                                                 onChange={(e) =>
                                                     setFormDetails({
                                                         ...formDetails,
-                                                        instituteName: e.target.value
+                                                        name: e.target.value
                                                     })
                                                 }
                                             />
@@ -168,7 +177,7 @@ const LoginPage = () => {
                                     </div>
                                 )}
 
-                                {signupType === 'CANDIDATE' && (
+                                {formDetails.role === 'CANDIDATE' && (
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
                                         <div className="relative">
@@ -177,11 +186,11 @@ const LoginPage = () => {
                                                 type="text"
                                                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:outline-0"
                                                 placeholder="John Doe"
-                                                value={formDetails.fullName}
+                                                value={formDetails.name}
                                                 onChange={(e) =>
                                                     setFormDetails({
                                                         ...formDetails,
-                                                        fullName: e.target.value
+                                                        name: e.target.value
                                                     })
                                                 }
                                             />
