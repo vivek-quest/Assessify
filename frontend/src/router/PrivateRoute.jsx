@@ -5,7 +5,6 @@ import { Navigate } from 'react-router-dom';
 
 function PrivateRoute({ children }) {
     const [auth] = useAtom(AuthAtom);
-    console.log(auth);
     return (
         auth?.isAuth ? children : <Navigate to={"/login"} />
     )

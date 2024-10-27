@@ -41,8 +41,8 @@ export const HoverEffect = ({
                         <CardTitle>{item.title}</CardTitle>
                         <CardDescription>{item.description}</CardDescription>
                         <div className="flex justify-between gap-5 items-center">
-                            <p className="leading-relaxed text-sm">{item.createdAt}</p>
-                            <Link to={`/interview/${item?.id}`}>
+                            <p className="leading-relaxed text-sm">{item.createdAt?.split('T')[0]}</p>
+                            <Link to={`/interview/${item?._id}`}>
                                 <button className="w-fit bg-[#e53935e6] text-white p-2 rounded-lg hover:bg-red-600 transition-colors duration-200 flex items-center justify-center gap-2" >Start Interview</button>
                             </Link>
                         </div>

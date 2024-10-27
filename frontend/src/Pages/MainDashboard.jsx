@@ -9,6 +9,8 @@ import { HoverEffect } from '../Components/CardHoverEffect';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import { BACKEND_URL, X_API_KEY } from '../assets/config';
+import { Pagination } from '@mui/material';
+import { useSearchParams } from 'react-router-dom';
 
 function MainDashboard() {
     const [loader, setLoader] = useState(true);
@@ -25,6 +27,12 @@ function MainDashboard() {
         questions: []
     });
     const [interviews, setInterviews] = useState([]);
+    const [pageDetails, setPageDetails] = useState({
+        page: 1,
+        totalPages: 1,
+        totalItems: 1
+    });
+    const [urlSearchParams, setUrlSearchParams] = useSearchParams()
 
     const checkUserRole = () => {
         setIsInstitute(userDetails?.role === 'institute');
@@ -34,10 +42,15 @@ function MainDashboard() {
         setLoader(true);
         try {
             const res = await axios.get(
-                `${BACKEND_URL}/${userDetails.role === 'institute' ? 'institutes' : 'candidates'}/interviews`,
+                `${BACKEND_URL}/${userDetails.role === 'institute' ? 'institutes' : 'candidates'}/interviews?page=${urlSearchParams.get('page') || 1}`,
                 { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } }
             );
             setInterviews(res.data.interviews);
+            setPageDetails({
+                page: res.data.page,
+                totalPages: res.data.totalPages,
+                totalItems: res.data.total
+            })
         } catch (error) {
             console.log('Get interviews error', error);
             toast.error('Something went wrong, please try again');
@@ -68,7 +81,6 @@ function MainDashboard() {
                 newInterviewDetails,
                 { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}`, 'Content-Type': 'application/json' } }
             );
-            console.log(res.data);
             toast.success('Interview added successfully!');
             setNewInterviewDetails({ title: '', description: '', goal: '', duration: '', questions: [] });
             setIsAddPopup(false);
@@ -78,6 +90,16 @@ function MainDashboard() {
             toast.error('Something went wrong, please try again');
         }
     };
+
+    const onPageChange = (page) => {
+        let urlSearchParams = new URLSearchParams(window.location.search)
+        urlSearchParams.set('page', page)
+        setUrlSearchParams(new URLSearchParams(urlSearchParams))
+    }
+
+    useEffect(() => {
+        fetchInterviews()
+    }, [urlSearchParams])
 
     return (
         <>
@@ -105,6 +127,49 @@ function MainDashboard() {
                                 )}
                             </div>
                             {isInstitute ? <HoverEffectList items={interviews} /> : <HoverEffect items={interviews} />}
+                            {
+                                pageDetails.totalPages > 1 ? (
+                                    <div className='flows-pagination'>
+                                        <span className={pageDetails.page == 1 ? 'disabled' : undefined} onClick={() => pageDetails.page != 1 && onPageChange(pageDetails.page - 1)}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="19" height="18" viewBox="0 0 19 18" fill="none">
+                                                <path d="M8.62145 8.99978L12.3337 12.7121L11.2731 13.7728L6.50008 8.99978L11.2731 4.22681L12.3337 5.28747L8.62145 8.99978Z" fill="#1f291f" />
+                                            </svg>
+                                            Previous
+                                        </span>
+                                        <Pagination
+                                            sx={{
+                                                '& .Mui-selected': {
+                                                    backgroundColor: '#e53935e6 !important',
+                                                    color: 'white !important',
+                                                    '&:hover': {
+                                                        backgroundColor: '#e53935 !important',
+                                                    },
+                                                    borderRadius: '5px',
+                                                },
+                                                '& .MuiPaginationItem-ellipsis': {
+                                                    color: 'black',
+                                                    backgroundColor: '#da7977e6',
+                                                },
+                                                '& .MuiPaginationItem-root': {
+                                                    color: 'black',
+                                                    borderRadius: '10px',
+                                                },
+                                            }}
+                                            count={pageDetails.totalPages}
+                                            page={Number(pageDetails.page) || 1}
+                                            onChange={(e, page) => onPageChange(page)}
+                                            hideNextButton
+                                            hidePrevButton
+                                        />
+                                        <span className={pageDetails.page == pageDetails.totalPages ? 'disabled' : undefined} onClick={() => pageDetails.page != pageDetails.totalPages && onPageChange(pageDetails.page + 1)}>
+                                            Next
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="19" height="18" viewBox="0 0 19 18" fill="none">
+                                                <path d="M10.3785 9.00022L6.66626 5.28787L7.72692 4.22722L12.4999 9.00022L7.72692 13.7732L6.66626 12.7125L10.3785 9.00022Z" fill="#1f291f" />
+                                            </svg>
+                                        </span>
+                                    </div>
+                                ) : null
+                            }
                         </div>
                     </div>
                 </div>

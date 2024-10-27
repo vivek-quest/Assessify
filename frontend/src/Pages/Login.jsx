@@ -48,7 +48,7 @@ const LoginPage = () => {
             let newFormDetails = { ...formDetails };
             delete newFormDetails.role;
             delete newFormDetails.name;
-            let res = await axios.post(`${BACKEND_URL}/auth/login`, formDetails, {
+            let res = await axios.post(`${BACKEND_URL}/auth/login`, newFormDetails, {
                 headers: { 'x-api-key': X_API_KEY }
             });
             if (res.data?.token) {

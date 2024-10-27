@@ -3,7 +3,6 @@ class General {
 
     showLoader() {
         if (document.getElementById("loader")) {
-            console.log('this');
             document.getElementById("loader").style.display = 'block';
 
         }

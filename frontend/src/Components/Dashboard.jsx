@@ -34,8 +34,11 @@ export function DashBoard({ children }) {
             label: "Logout",
             href: "/dashboard",
             icon: (
-                <IconArrowLeft className="text-neutral-700 h-5 w-5 flex-shrink-0" />
+                <IconArrowLeft className="text-neutral-700 h-5 w-5 flex-shrink-0" onClick={() => window.location.reload()} />
             ),
+            handleClick: () => {
+                window.location.reload();
+            }
         },
     ];
 
@@ -54,7 +57,7 @@ export function DashBoard({ children }) {
                         {open ? <Logo /> : <LogoIcon />}
                         <div className="mt-8 flex flex-col gap-2">
                             {links.map((link, idx) => (
-                                <SidebarLink key={idx} link={link} className={'link-hover'} />
+                                <SidebarLink key={idx} link={link} className={'link-hover'} handleClick={link.handleClick} />
                             ))}
                         </div>
                     </div>

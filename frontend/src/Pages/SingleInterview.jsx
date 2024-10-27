@@ -1,16 +1,76 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import AssessifyLoader from '../Components/AssessifyLoader';
 import { DashBoard } from '../Components/Dashboard';
-import { UserAtom } from '../Atoms/AtomStores';
+import { AuthAtom, UserAtom } from '../Atoms/AtomStores';
 import { useAtom } from 'jotai';
 import AllSvgs from '../Components/AllSvgs';
 import PopupOverlay from '../Components/PopupOverlay';
+import { useNavigate, useParams } from 'react-router-dom';
+import axios from 'axios';
+import { BACKEND_URL, X_API_KEY } from '../assets/config';
+import toast from 'react-hot-toast';
 
 function SingleInterview() {
     const [loader, setLoader] = useState(false);
     const userDetails = useAtom(UserAtom);
+    const [auth] = useAtom(AuthAtom);
     const [interviewDetails, setInterviewDetails] = useState({});
+    const [editInterviewDetails, setEditInterviewDetails] = useState({});
     const [isEditPopup, setIsEditPopup] = useState(false);
+
+    const { id } = useParams();
+    const navigate = useNavigate();
+
+    const fetchInterviewdetails = async () => {
+        try {
+            setLoader(true);
+            let res = await axios.get(`${BACKEND_URL}/institutes/interviews/${id}`, { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } });
+            setInterviewDetails(res.data);
+            setEditInterviewDetails(res.data);
+        } catch (error) {
+            console.log(error);
+        } finally {
+            setLoader(false);
+        }
+    }
+
+    useEffect(() => {
+        fetchInterviewdetails();
+    }, [])
+
+    const handleUpdateInterview = async (e) => {
+        e.preventDefault();
+        setLoader(true);
+        try {
+            const res = await axios.put(`${BACKEND_URL}/institutes/interviews/${id}`, editInterviewDetails, { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } });
+            if (res.data) {
+                setIsEditPopup(false);
+                fetchInterviewdetails();
+                toast.success('Interview updated successfully!');
+            }
+        } catch (error) {
+            console.log(error);
+            toast.error('Something went wrong, please try again');
+        }
+    }
+
+    const handleDeleteInterview = async () => {
+        try {
+            let res = await axios.delete(`${BACKEND_URL}/institutes/interviews/${id}`, { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } });
+            if (res.data) {
+                toast.success('Interview deleted successfully!');
+                navigate('/dashboard');
+            }
+        } catch (error) {
+            console.log(error);
+            toast.error('Something went wrong, please try again');
+        }
+    }
+
+    const toggleEditPopup = () => {
+        setIsEditPopup(prev => !prev);
+        setEditInterviewDetails(interviewDetails);
+    }
 
     return (
         <>
@@ -29,7 +89,7 @@ function SingleInterview() {
                                     <div onClick={() => setIsEditPopup(true)}>
                                         <AllSvgs type={'edit'} className='cursor-pointer hover-icon-fill' />
                                     </div>
-                                    <div>
+                                    <div onClick={handleDeleteInterview}>
                                         <AllSvgs type={'delete'} className='cursor-pointer hover-icon-stroke' />
                                     </div>
                                 </div>
@@ -38,13 +98,13 @@ function SingleInterview() {
                     </div>
                 </div>
             </DashBoard>
-            {isEditPopup && <PopupOverlay closePopup={() => setIsEditPopup(false)} addEscapeHandler={true} >
+            {isEditPopup && <PopupOverlay closePopup={() => toggleEditPopup()} addEscapeHandler={true} >
                 <div className='bg-white p-5 rounded-2xl flex flex-col gap-4 w-[500px] max-h-[650px] overflow-scroll hideScrollbar'>
                     <div className='flex justify-between items-center'>
-                        <p className='text-xl font-semibold text-gray-900'>Create Interview</p>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="17" viewBox="0 0 16 17" fill="none"><path d="M4.50513 11.9957L8.00046 8.50034L11.4958 11.9957M11.4958 5.005L7.99979 8.50034L4.50513 5.005" stroke="var(--icon-color,#808080)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" className='cursor-pointer' onClick={() => setIsEditPopup(false)}></path></svg>
+                        <p className='text-xl font-semibold text-gray-900'>Edit Interview</p>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="17" viewBox="0 0 16 17" fill="none"><path d="M4.50513 11.9957L8.00046 8.50034L11.4958 11.9957M11.4958 5.005L7.99979 8.50034L4.50513 5.005" stroke="var(--icon-color,#808080)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" className='cursor-pointer' onClick={() => toggleEditPopup()}></path></svg>
                     </div>
-                    <form className='flex flex-col gap-2'>
+                    <form className='flex flex-col gap-2' onSubmit={handleUpdateInterview}>
                         <div>
                             <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">Interview Title</label>
                             <input
@@ -54,6 +114,8 @@ function SingleInterview() {
                                 placeholder="Enter interview title"
                                 required
                                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:outline-0"
+                                value={editInterviewDetails.title}
+                                onChange={(e) => setEditInterviewDetails({ ...editInterviewDetails, title: e.target.value })}
                             />
                         </div>
 
@@ -65,6 +127,8 @@ function SingleInterview() {
                                 placeholder="Enter description"
                                 required
                                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:outline-0 resize-none"
+                                value={editInterviewDetails.description}
+                                onChange={(e) => setEditInterviewDetails({ ...editInterviewDetails, description: e.target.value })}
                             ></textarea>
                         </div>
 
@@ -77,6 +141,8 @@ function SingleInterview() {
                                 placeholder="Enter goal"
                                 required
                                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:outline-0"
+                                value={editInterviewDetails.goal}
+                                onChange={(e) => setEditInterviewDetails({ ...editInterviewDetails, goal: e.target.value })}
                             />
                         </div>
 
@@ -87,6 +153,8 @@ function SingleInterview() {
                                 name="questions"
                                 placeholder="Enter questions (optional)"
                                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:outline-0 resize-none"
+                                value={editInterviewDetails.questions?.join('\n')}
+                                onChange={(e) => setEditInterviewDetails({ ...editInterviewDetails, questions: e.target.value.split('\n').map(q => q.trim()) })}
                             ></textarea>
                         </div>
 
@@ -100,26 +168,8 @@ function SingleInterview() {
                                 required
                                 min={0}
                                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:outline-0"
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Start Date (Optional)</label>
-                            <input
-                                type="date"
-                                id="startDate"
-                                name="startDate"
-                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:outline-0"
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">End Date (Optional)</label>
-                            <input
-                                type="date"
-                                id="endDate"
-                                name="endDate"
-                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:outline-0"
+                                value={editInterviewDetails.duration}
+                                onChange={(e) => setEditInterviewDetails({ ...editInterviewDetails, duration: e.target.value })}
                             />
                         </div>
 

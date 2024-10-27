@@ -45,7 +45,7 @@ export const HoverEffectList = ({
                         <CardDescription>{item.description}</CardDescription>
                         <div className="flex justify-between gap-5 items-center">
                             <p className="leading-relaxed text-sm">{item.duration}</p>
-                            <p className="leading-relaxed text-sm">{item.createdAt}</p>
+                            <p className="leading-relaxed text-sm">{item.createdAt?.split('T')[0]}</p>
                         </div>
                     </Card>
                 </Link>

@@ -114,7 +114,7 @@ export const MobileSidebar = ({ className, children, ...props }) => {
     );
 };
 
-export const SidebarLink = ({ link, className, ...props }) => {
+export const SidebarLink = ({ link, className, handleClick, ...props }) => {
     const { open, animate } = useSidebar();
     return (
         <Link
@@ -129,6 +129,7 @@ export const SidebarLink = ({ link, className, ...props }) => {
                     opacity: animate ? (open ? 1 : 0) : 1,
                 }}
                 className="text-neutral-700 text-sm group-hover/sidebar:translate-x-1 transition duration-150 whitespace-pre inline-block !p-0 !m-0 "
+                onClick={() => handleClick && handleClick()}
             >
                 {link.label}
             </motion.span>

@@ -5,8 +5,16 @@ import ChatMessage from '../Components/ChatMessage';
 import { DashBoard } from '../Components/Dashboard';
 import toast from 'react-hot-toast';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import { useParams } from 'react-router-dom';
+import { BACKEND_URL, X_API_KEY } from '../assets/config';
+import { useAtom } from 'jotai';
+import { AuthAtom } from '../Atoms/AtomStores';
+import AssessifyLoader from '../Components/AssessifyLoader';
+import axios from 'axios';
 
 const InterviewPage = () => {
+    const [loader, setLoader] = useState(false);
+    const [isInterviewRunning, setIsInterviewRunning] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [isMicOn, setIsMicOn] = useState(false);
     const [isCameraOn, setIsCameraOn] = useState(true);
@@ -25,6 +33,28 @@ const InterviewPage = () => {
     const videoRecorder = useRef(null);
     const recordedChunks = useRef([]);
 
+    const [auth] = useAtom(AuthAtom);
+
+    const { id } = useParams();
+    const [interviewDetails, setInterviewDetails] = useState({});
+    const [elapsedTime, setElapsedTime] = useState(0);
+
+    const fetchInterviewDetails = async () => {
+        setLoader(true);
+        try {
+            const res = await axios.get(
+                `${BACKEND_URL}/candidates/interviews/${id}`,
+                { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } }
+            );
+            setInterviewDetails(res.data);
+        } catch (error) {
+            console.log('Get interview error', error);
+            toast.error('Something went wrong, please try again');
+        } finally {
+            setLoader(false);
+        }
+    }
+
     const {
         transcript,
         resetTranscript,
@@ -33,11 +63,28 @@ const InterviewPage = () => {
     } = useSpeechRecognition();
 
     useEffect(() => {
+        fetchInterviewDetails();
         startCamera();
         return () => {
             stopCamera();
         };
     }, []);
+
+    useEffect(() => {
+        let interval;
+        if (isInterviewRunning) {
+            interval = setInterval(() => {
+                setElapsedTime((prev) => {
+                    if (prev + 1 >= interviewDetails?.duration) {
+                        stopInterview();
+                    }
+                    return Math.min(prev + 1, interviewDetails?.duration);
+                });
+            }, 60000);
+        }
+
+        return () => clearInterval(interval);
+    }, [isInterviewRunning, interviewDetails?.duration]);
 
     useEffect(() => {
         if (chatContainerRef.current) {
@@ -95,7 +142,7 @@ const InterviewPage = () => {
             videoRecorder.current.start();
         }
         setIsRecording(true);
-    }
+    };
 
     const stopRecording = () => {
         if (videoRecorder.current) {
@@ -180,100 +227,146 @@ const InterviewPage = () => {
         }
     };
 
+    const startInterview = () => {
+        setIsInterviewRunning(true);
+        startRecording();
+    };
+
+    const stopInterview = () => {
+        setIsInterviewRunning(false);
+        stopRecording();
+        saveRecording();
+        stopCamera();
+    };
+
+    const progressPercentage = (elapsedTime / interviewDetails?.duration) * 100;
+
+    useEffect(() => {
+        if (progressPercentage === 100) {
+            stopInterview();
+        }
+    }, [progressPercentage])
+
     return (
-        <DashBoard>
-            <div className="min-h-screen bg-gray-50 hideScrollbar">
-                <div className="">
-                    <div className="w-full h-auto p-6 text-xl font-bold text-gray-800 flex justify-between border-b border-b-[#e53935e6] items-center">
-                        <p>Interview</p>
-                    </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-4">
-                        <div className="space-y-4">
-                            <VideoPreview
-                                videoRef={videoRef}
-                                canvasRef={canvasRef}
-                                isCameraOn={isCameraOn}
-                                isMicOn={isMicOn}
-                                isRecording={isRecording}
-                                isScreenSharing={isScreenSharing}
-                                onToggleCamera={toggleCamera}
-                                onToggleMic={toggleMic}
-                                onToggleRecording={() => {
-                                    if (isRecording) {
-                                        stopRecording();
-                                        saveRecording();
-                                    } else {
-                                        startRecording();
-                                    }
-                                }}
-                                onStartScreenShare={startScreenShare}
-                            />
-                            <div className="bg-white p-6 rounded-xl shadow-sm">
-                                <h2 className="text-lg font-semibold mb-2">Interview Progress</h2>
-                                <div className="flex items-center gap-4">
-                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                        <div className="h-full w-1/3 bg-[#e53935e6] rounded-full"></div>
-                                    </div>
-                                    <span className="text-sm text-gray-600">5/15 mins</span>
-                                </div>
+        <>
+            {loader && <AssessifyLoader />}
+            <DashBoard>
+                <div className="min-h-screen bg-gray-50 hideScrollbar">
+                    <div className="">
+                        <div className="w-full h-auto p-6 text-xl font-bold text-gray-800 flex justify-between border-b border-b-[#e53935e6] items-center">
+                            <p>Interview</p>
+                        </div>
+                        <div className='w-full h-auto p-6 text-lg font-bold text-gray-800 flex justify-between items-center'>
+                            <p>{interviewDetails?.title}</p>
+                            <div>
+                                {isInterviewRunning ? (
+                                    <button
+                                        onClick={stopInterview}
+                                        className="p-3 rounded-lg bg-[#e53935e6] text-white hover:bg-red-700 hover:text-white transition-colors duration-200"
+                                    >
+                                        Stop Interview
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={startInterview}
+                                        className="p-3 rounded-lg bg-[#15ff20e6] text-black hover:bg-green-800 hover:text-white transition-colors duration-200"
+                                    >
+                                        Start Interview
+                                    </button>
+                                )}
                             </div>
                         </div>
-
-                        <div className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col h-[600px]">
-                            <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
-                                <div>
-                                    <h2 className="text-lg font-semibold text-gray-900">AI Interviewer</h2>
-                                    <p className="text-sm text-gray-600">Respond via text or voice</p>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-4">
+                            <div className="space-y-4">
+                                <VideoPreview
+                                    videoRef={videoRef}
+                                    canvasRef={canvasRef}
+                                    isCameraOn={isCameraOn}
+                                    isMicOn={isMicOn}
+                                    isRecording={isRecording}
+                                    isScreenSharing={isScreenSharing}
+                                    onToggleCamera={toggleCamera}
+                                    onToggleMic={toggleMic}
+                                    onToggleRecording={() => {
+                                        if (isRecording) {
+                                            stopRecording();
+                                            saveRecording();
+                                        } else {
+                                            startRecording();
+                                        }
+                                    }}
+                                    onStartScreenShare={startScreenShare}
+                                />
+                                <div className="bg-white p-6 rounded-xl shadow-sm">
+                                    <h2 className="text-lg font-semibold mb-2">Interview Progress</h2>
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-[#e53935e6] rounded-full"
+                                                style={{ width: `${progressPercentage}%` }}
+                                            ></div>
+                                        </div>
+                                        <span className="text-sm text-gray-600">{elapsedTime}/{interviewDetails?.duration} mins</span>
+                                    </div>
                                 </div>
-                                <button
-                                    onClick={() => setIsTTSEnabled(!isTTSEnabled)}
-                                    className={`p-3 rounded-full ${isTTSEnabled ? 'bg-[#e53935e6] text-white' : 'bg-gray-100 text-gray-600'
-                                        } hover:bg-red-700 hover:text-white transition-colors duration-200`}
+                            </div>
+
+                            <div className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col h-[600px]">
+                                <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-gray-900">AI Interviewer</h2>
+                                        <p className="text-sm text-gray-600">Respond via text or voice</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setIsTTSEnabled(!isTTSEnabled)}
+                                        className={`p-3 rounded-full ${isTTSEnabled ? 'bg-[#e53935e6] text-white' : 'bg-gray-100 text-gray-600'
+                                            } hover:bg-red-700 hover:text-white transition-colors duration-200`}
+                                    >
+                                        {isTTSEnabled ? <Volume2 size={20} /> : <VolumeOff size={20} />}
+                                    </button>
+                                </div>
+
+                                <div
+                                    ref={chatContainerRef}
+                                    className="flex-1 overflow-y-auto p-4 space-y-4"
                                 >
-                                    {isTTSEnabled ? <Volume2 size={20} /> : <VolumeOff size={20} />}
-                                </button>
-                            </div>
+                                    {chat.map((msg, index) => (
+                                        <ChatMessage key={index} role={msg.role} content={msg.content} />
+                                    ))}
+                                </div>
 
-                            <div
-                                ref={chatContainerRef}
-                                className="flex-1 overflow-y-auto p-4 space-y-4"
-                            >
-                                {chat.map((msg, index) => (
-                                    <ChatMessage key={index} role={msg.role} content={msg.content} />
-                                ))}
-                            </div>
-
-                            <div className="p-4 border-t bg-white">
-                                <div className="flex items-center gap-2">
-                                    <textarea
-                                        value={message}
-                                        onChange={(e) => setMessage(e.target.value)}
-                                        onKeyDown={handleKeyPress}
-                                        placeholder="Type your response or click the mic to speak..."
-                                        className="flex-1 resize-none rounded-lg border-gray-300 focus:ring-red-500 focus:border-red-500 min-h-[80px] focus:outline-0"
-                                    />
-                                    <div className="flex flex-col gap-2">
-                                        <button
-                                            onClick={toggleMic}
-                                            className={`p-3 rounded-full ${isMicOn ? 'bg-[#e53935e6] text-white' : 'bg-gray-100 text-gray-600'
-                                                } hover:bg-red-700 hover:text-white transition-colors duration-200`}
-                                        >
-                                            {isMicOn ? <Mic size={20} /> : <MicOff size={20} />}
-                                        </button>
-                                        <button
-                                            onClick={handleSend}
-                                            className="p-3 rounded-full bg-[#e53935e6] text-white hover:bg-red-700 transition-colors duration-200"
-                                        >
-                                            <Send size={20} />
-                                        </button>
+                                <div className="p-4 border-t bg-white">
+                                    <div className="flex items-center gap-2">
+                                        <textarea
+                                            value={message}
+                                            onChange={(e) => setMessage(e.target.value)}
+                                            onKeyDown={handleKeyPress}
+                                            placeholder="Type your response or click the mic to speak..."
+                                            className="flex-1 resize-none rounded-lg border-gray-300 focus:ring-red-500 focus:border-red-500 min-h-[80px] focus:outline-0"
+                                        />
+                                        <div className="flex flex-col gap-2">
+                                            <button
+                                                onClick={toggleMic}
+                                                className={`p-3 rounded-full ${listening ? 'bg-green-600 text-white' : isMicOn ? 'bg-[#e53935e6] text-white' : 'bg-gray-100 text-gray-600'
+                                                    } hover:bg-red-700 hover:text-white transition-colors duration-200`}
+                                            >
+                                                {(listening || isMicOn) ? <Mic size={20} /> : <MicOff size={20} />}
+                                            </button>
+                                            <button
+                                                onClick={handleSend}
+                                                className="p-3 rounded-full bg-[#e53935e6] text-white hover:bg-red-700 transition-colors duration-200"
+                                            >
+                                                <Send size={20} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </DashBoard>
+            </DashBoard>
+        </>
     );
 };
 
