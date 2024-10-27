@@ -8,5 +8,6 @@ module.exports = {
     JWT_SECRET: process.env.JWT_SECRET,
     API_KEY: process.env.API_KEY,
     EMAIL_USER: process.env.EMAIL_USER,
-    EMAIL_PASS: process.env.EMAIL_PASS
+    EMAIL_PASS: process.env.EMAIL_PASS,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY
 }

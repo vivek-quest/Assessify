@@ -12,9 +12,15 @@ const attemptSchema = new mongoose.Schema({
         ref: 'Interview',
         required: true,
     },
-    score: {
-        type: Number,
-        default: 0,
+    result: {
+        score: {
+            type: Number,
+            default: 0,
+        },
+        comments: {
+            type: [String],
+            default: [],
+        },
     },
     metadata: {
         type: [Object],
@@ -23,7 +29,7 @@ const attemptSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: Object.values(ATTEMP_STATUS),
-        default: ATTEMP_STATUS.PENDING,
+        default: ATTEMP_STATUS.NOT_STARTED,
     },
 }, { timestamps: true });
 
