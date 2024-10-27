@@ -20,9 +20,7 @@ const InterviewPage = () => {
     const [isCameraOn, setIsCameraOn] = useState(true);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
     const [message, setMessage] = useState('');
-    const [chat, setChat] = useState([
-        { role: 'ai', content: 'Hello! I\'m your AI interviewer. Let\'s begin with your introduction. Please tell me about yourself.' }
-    ]);
+    const [chat, setChat] = useState([]);
     const [isTTSEnabled, setIsTTSEnabled] = useState(false);
 
     const videoRef = useRef(null);
@@ -166,17 +164,29 @@ const InterviewPage = () => {
         URL.revokeObjectURL(url);
     };
 
-    const handleSend = () => {
+    const handleSend = async () => {
         if (message.trim()) {
             setChat(prev => [...prev, { role: 'user', content: message }]);
-            setTimeout(() => {
-                const aiResponse = 'Thank you for sharing that. Could you elaborate more on your experience with team collaboration?';
-                setChat(prev => [...prev, { role: 'ai', content: aiResponse }]);
-                if (isTTSEnabled) {
-                    speak(aiResponse);
+
+            try {
+                const response = await continueInterview(message);
+                if (response.status === 'pending') {
+                    const aiResponse = response?.response?.message?.content;
+                    setChat(prev => [...prev, { role: 'ai', content: aiResponse }]);
+
+                    if (isTTSEnabled && aiResponse) {
+                        speak(aiResponse);
+                    }
+                } else {
+                    endInterview();
                 }
-                resetTranscript();
-            }, 1000);
+                setMessage('');
+            } catch (error) {
+                console.error('Error fetching AI response:', error);
+                toast.error('Something went wrong while fetching the response');
+            }
+
+            resetTranscript();
             setMessage('');
         }
     };
@@ -238,7 +248,6 @@ const InterviewPage = () => {
             );
             let data = res?.data;
             if (data?.status) {
-                console.log(data._id);
                 setIsInterviewRunning(true);
                 startRecording();
                 initiateInterview(data?._id);
@@ -257,7 +266,13 @@ const InterviewPage = () => {
                 {},
                 { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } }
             );
-            console.log(res);
+            let data = res.data;
+            if (data.status === "pending") {
+                setChat(prev => [...prev, { role: 'ai', content: data.response?.message?.content }]);
+                if (isTTSEnabled) {
+                    speak(data.response?.message?.content);
+                }
+            }
         } catch (error) {
             console.log(error);
             toast.error('Something went wrong, please try again');
@@ -271,7 +286,7 @@ const InterviewPage = () => {
                 { content },
                 { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } }
             );
-            console.log(res);
+            return res.data;
         } catch (error) {
             console.log(error);
             toast.error('Something went wrong, please try again');
@@ -292,7 +307,12 @@ const InterviewPage = () => {
         }
     }
 
-    const stopInterview = () => {
+    const stopInterview = async () => {
+        try {
+            let res = await endInterview();
+        } catch (error) {
+
+        }
         setIsInterviewRunning(false);
         stopRecording();
         saveRecording();
