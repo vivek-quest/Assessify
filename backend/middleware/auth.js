@@ -23,7 +23,6 @@ const auth = (roles) => {
                 return res.status(403).json({ message: 'Verification email sent' });
             }
 
-            console.log(roles)
             if (roles && !roles.includes(user.role)) {
                 return res.status(403).json({ error: 'Access forbidden: insufficient permissions' });
             }

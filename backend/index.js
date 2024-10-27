@@ -17,5 +17,6 @@ mongoose.connect(MONGODB_URI, { useUnifiedTopology: true })
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/institutes', apiKeyAuth, auth([ROLE.INSTITUTE]), require('./routes/institutes'));
+app.use('/api/candidates', apiKeyAuth, auth([ROLE.CANDIDATE]), require('./routes/candidates'));
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
