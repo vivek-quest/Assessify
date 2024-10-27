@@ -39,6 +39,8 @@ const InterviewPage = () => {
     const [interviewDetails, setInterviewDetails] = useState({});
     const [elapsedTime, setElapsedTime] = useState(0);
 
+    const [initiateId, setInitiateId] = useState('');
+
     const fetchInterviewDetails = async () => {
         setLoader(true);
         try {
@@ -227,10 +229,68 @@ const InterviewPage = () => {
         }
     };
 
-    const startInterview = () => {
-        setIsInterviewRunning(true);
-        startRecording();
+    const startInterview = async () => {
+        try {
+            let res = await axios.post(
+                `${BACKEND_URL}/candidates/interviews/${id}/attempts`,
+                {},
+                { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } }
+            );
+            let data = res?.data;
+            if (data?.status) {
+                console.log(data._id);
+                setIsInterviewRunning(true);
+                startRecording();
+                initiateInterview(data?._id);
+                setInitiateId(data?._id);
+            }
+        } catch (error) {
+            console.log(error);
+            toast.error('Something went wrong, please try again');
+        }
     };
+
+    const initiateInterview = async (iniId) => {
+        try {
+            let res = await axios.post(
+                `${BACKEND_URL}/candidates/interviews/${id}/attempts/${iniId || initiateId}/initiate`,
+                {},
+                { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } }
+            );
+            console.log(res);
+        } catch (error) {
+            console.log(error);
+            toast.error('Something went wrong, please try again');
+        }
+    }
+
+    const continueInterview = async (content) => {
+        try {
+            let res = await axios.post(
+                `${BACKEND_URL}/candidates/interviews/${id}/attempts/${initiateId}/continue`,
+                { content },
+                { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } }
+            );
+            console.log(res);
+        } catch (error) {
+            console.log(error);
+            toast.error('Something went wrong, please try again');
+        }
+    }
+
+    const endInterview = async () => {
+        try {
+            let res = await axios.post(
+                `${BACKEND_URL}/candidates/interviews/${id}/attempts/${initiateId}/end`,
+                {},
+                { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } }
+            );
+            console.log(res);
+        } catch (error) {
+            console.log(error);
+            toast.error('Something went wrong, please try again');
+        }
+    }
 
     const stopInterview = () => {
         setIsInterviewRunning(false);
