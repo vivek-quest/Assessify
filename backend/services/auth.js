@@ -47,8 +47,8 @@ class AuthService {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) throw new Error('Invalid password');
 
-        const token = jwt.sign({ _id: user._id, role: user.role }, JWT_SECRET);
-        return token;
+        const token = jwt.sign({ _id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+        return { token, user };
     }
 }
 

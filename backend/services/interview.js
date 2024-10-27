@@ -1,104 +1,38 @@
 const Interview = require("../models/Interview");
 
 class InterviewService {
-    async createInterview({ instituteId, title, description, goal, duration, questions }) {
-        try {
-            if(duration < 5) throw new Error('Interview duration must be at least 5 minutes');
+    static createPrompt(interview) {
+        const stepsToFollow = [
+            'Start by introducing yourself and the interview purpose.',
+            'Proceed with asking questions one at a time, allowing for thoughtful responses.',
+            'Keep the tone professional but encouraging, making candidates feel comfortable sharing their thoughts.',
+            'Follow up with additional questions based on their answers to gather deeper insights.',
+            'After completing the questions, conclude the interview and provide feedback if appropriate.'
+        ]
 
-            const interview = new Interview({ 
-                title, 
-                description, 
-                goal, 
-                duration, 
-                questions, 
-                institute: instituteId 
-            });
-            await interview.save();
-            return interview;
-        } catch (error) {
-            throw new Error('Error creating interview: ' + error.message);
-        }
-    }
-    async updateInterview({ instituteId, interviewId, title, description, goal, duration, questions }) {
-        try {
-            const filter = { _id: interviewId, institute: instituteId };
-            const update = { 
-                title, 
-                description, 
-                goal, 
-                duration, 
-                questions 
-            };
-            const options = { new: true };
-            const interview = await Interview.findOneAndUpdate(filter, update, options).exec();
-            return interview;
-        } catch (error) {
-            throw new Error('Error updating interview: ' + error.message);
-        }
-    }
-    async getInterviews({ instituteId, page = 1, limit = 10 }) {
-        try {
-            const filter = { institute: instituteId };
-            const skip = (page - 1) * limit;
-            const interviews = await Interview.find(filter).skip(skip).limit(limit).exec();
-            const total = await Interview.countDocuments(filter);
-            return {
-                interviews,
-                total,
-                page,
-                totalPages: Math.ceil(total / limit),
-            };
-        } catch (error) {
-            throw new Error('Error retrieving interviews: ' + error.message);
-        }
-    }
-    async getInterview({ instituteId, interviewId }) {
-        try {
-            const interview = await Interview.findOne({ _id: interviewId, institute: instituteId }).exec();
-            return interview;
-        } catch (error) {
-            throw new Error('Error retrieving interview: ' + error.message);
-        }
-    }
-    async deleteInterview({ instituteId, interviewId }) {
-        try {
-            await Interview.deleteOne({ _id: interviewId, institute: instituteId }).exec();
-        } catch (error) {
-            throw new Error('Error deleting interview: ' + error.message);
-        }
-    }
-    async addCandidate({ instituteId, interviewId, candidateId }) {
-        try {
-            const interview = await Interview.findOne({
-                _id: interviewId,
-                institute: instituteId,
-                candidates: { $in: [candidateId] }
-            });
-    
-            if (interview) {
-                throw new Error('Candidate already exists in this interview');
-            }
-    
-            const updatedInterview = await Interview.findByIdAndUpdate(
-                interviewId,
-                { $push: { candidates: candidateId } },
-                { new: true }
-            );
-    
-            return { message: 'Candidate added to interview successfully', interview: updatedInterview };
-        } catch (error) {
-            throw new Error(`Error adding candidate to interview: ${error.message}`);
-        }
-    }
-    async getCandidates({ instituteId, interviewId }) {
-        try {
-            const interview = await Interview.findOne({ _id: interviewId, instituteId }).populate('candidates');
-            return interview.candidates;
-        } catch (error) {
-            throw new Error('Error retrieving candidates: ' + error.message);
-        }
-    }
+        if(interview.questions && interview.questions.length) {
+            stepsToFollow[2] = 'Proceed with asking each of the following predefined questions one at a time, allowing the candidate to provide thoughtful responses: \n\n';
 
+            interview.questions.forEach((question, index) => {
+                stepsToFollow[2] += `Question ${index + 1}: ${question}\n`;
+            })
+
+            stepsToFollow[2] += '\n'
+        }
+
+        return `Imagine you are an interviewer for an interview session titled '[Title]' created by [Institute Name]. The interview is designed with the following details:
+
+        Title: ${interview.title}
+        Description: ${interview.description}
+        Goal: ${interview.goal}
+        Duration: ${interview.duration} minutes
+        
+        You will be interviewing candidates about topics related to the description and goal of the interview. Here are the steps to follow:
+
+        ${stepsToFollow.map((step, index) => `${index + 1}. ${step}`).join('\n')}
+
+        Please start the interview session and proceed with the first question.`
+    }
 }
 
 module.exports = new InterviewService();

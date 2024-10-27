@@ -19,8 +19,8 @@ router.post('/login', apiKeyAuth, async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const token = await authService.login(email, password);
-        res.header('Authorization', token).json({ token });
+        const credentials = await authService.login(email, password);
+        res.header('Authorization', token).json(credentials);
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
