@@ -43,6 +43,7 @@ const VideoPreview = ({
                     autoPlay
                     playsInline
                     muted
+                    style={{ transform: 'scaleX(-1)' }}
                     className={`w-full h-full object-cover ${!isCameraOn ? 'hidden' : ''}`}
                 />
                 <canvas

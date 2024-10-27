@@ -16,7 +16,7 @@ export const HoverEffectList = ({
             className={cn("w-full flex flex-col gap-1.5", className)}>
             {items.map((item, idx) => (
                 <Link
-                    to={item?.id}
+                    to={item?._id}
                     key={idx}
                     className="relative group block p-0.5 h-full w-full"
                     onMouseEnter={() => setHoveredIndex(idx)}

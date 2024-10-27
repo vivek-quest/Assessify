@@ -9,15 +9,7 @@ import PopupOverlay from '../Components/PopupOverlay';
 function SingleInterview() {
     const [loader, setLoader] = useState(false);
     const userDetails = useAtom(UserAtom);
-    const [interviewDetails, setInterviewDetails] = useState({
-        title: "Stripe",
-        description:
-            "A technology company that builds economic infrastructure for the internet.",
-        Goal: 'adfv',
-        duration: 'asdasnd',
-        startDate: '21 - 12 - 2021',
-        id: 'asd'
-    });
+    const [interviewDetails, setInterviewDetails] = useState({});
     const [isEditPopup, setIsEditPopup] = useState(false);
 
     return (

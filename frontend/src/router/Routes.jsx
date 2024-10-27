@@ -13,13 +13,25 @@ function AllRoutes() {
             <Route path="/" element={<Home />} />
             <Route path='/login' element={<LoginPage />} />
             <Route path='/dashboard' element={
-                // <PrivateRoute>
-                <MainDashboard />
-                // </PrivateRoute>
+                <PrivateRoute>
+                    <MainDashboard />
+                </PrivateRoute>
             } />
-            <Route path='/dashboard/:id' element={<SingleInterview />} />
-            <Route path='/interviews' element={<MainDashboard />} />
-            <Route path='/interview/:id' element={<InterviewPage />} />
+            <Route path='/dashboard/:id' element={
+                <PrivateRoute>
+                    <SingleInterview />
+                </PrivateRoute>
+            } />
+            <Route path='/interviews' element={
+                <PrivateRoute>
+                    <MainDashboard />
+                </PrivateRoute>
+            } />
+            <Route path='/interview/:id' element={
+                <PrivateRoute>
+                    <InterviewPage />
+                </PrivateRoute>
+            } />
             <Route path='*' element={<Home />} />
         </Routes>
     )

@@ -1,19 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { Mail, Lock, User, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { BACKEND_URL } from '../assets/config';
+import { BACKEND_URL, X_API_KEY } from '../assets/config';
 import axios from 'axios';
-
+import { AuthAtom, UserAtom } from '../Atoms/AtomStores';
+import { useAtom } from 'jotai';
+import { useNavigate } from 'react-router-dom';
 const LoginPage = () => {
     const [isLogin, setIsLogin] = useState(true);
+    const [userDetails, setUserDetails] = useAtom(UserAtom);
+    const [auth, setAuth] = useAtom(AuthAtom);
     const [formDetails, setFormDetails] = useState({
         name: '',
         email: '',
         password: '',
-        role: 'CANDIDATE'
+        role: 'candidate'
     });
     const [isRemember, setIsRemember] = useState(false);
-
+    const navigate = useNavigate();
     useEffect(() => {
         let userDetails = localStorage.getItem('userDetails');
         if (userDetails) {
@@ -41,14 +45,20 @@ const LoginPage = () => {
             if (isRemember) {
                 localStorage.setItem('userDetails', JSON.stringify(formDetails));
             }
-
-            let res = await axios.post(`${BACKEND_URL}/auth/signup`, formDetails);
-            // if (res.successful) {
-            //     toast.success('Login successful');
-            //     window.location.href = '/dashboard';
-            // } else {
-            //     toast.error(res.message);
-            // }
+            let newFormDetails = { ...formDetails };
+            delete newFormDetails.role;
+            delete newFormDetails.name;
+            let res = await axios.post(`${BACKEND_URL}/auth/login`, formDetails, {
+                headers: { 'x-api-key': X_API_KEY }
+            });
+            if (res.data?.token) {
+                toast.success('Login successful');
+                setAuth({ isAuth: true, token: res.data.token });
+                setUserDetails(res.data.user);
+                navigate('/dashboard');
+            } else {
+                toast.error('Invalid email or password');
+            }
         } catch (error) {
             console.error('Login error', error);
             toast.error('Something went wrong, please try again');
@@ -57,16 +67,22 @@ const LoginPage = () => {
 
     const handleRegister = async () => {
         try {
-            if (formDetails.role === 'CANDIDATE' && (!formDetails.name || !formDetails.email || !formDetails.password)) {
+            if (formDetails.role === 'candidate' && (!formDetails.name || !formDetails.email || !formDetails.password)) {
                 toast.error('Please fill out full name, email, and password');
                 return;
             }
-            if (formDetails.role === 'INSTITUTE' && (!formDetails.name || !formDetails.email || !formDetails.password)) {
+            if (formDetails.role === 'institute' && (!formDetails.name || !formDetails.email || !formDetails.password)) {
                 toast.error('Please fill out institute name, email, and password');
                 return;
             }
+            let res = await axios.post(`${BACKEND_URL}/auth/signup`, formDetails, { headers: { 'x-api-key': X_API_KEY } });
+            if (res.data.message === 'User created') {
+                toast.success('User Registered successfully');
+            } else {
+                toast.error('Something went wrong, please try again');
+            }
         } catch (error) {
-            console.error('Registration error', error);
+            console.log('Registration error', error);
             toast.error('Something went wrong, please try again');
         }
     };
@@ -75,10 +91,10 @@ const LoginPage = () => {
         if (isLogin) {
             return !formDetails.email || !formDetails.password;
         }
-        if (formDetails.role === 'CANDIDATE') {
+        if (formDetails.role === 'candidate') {
             return !formDetails.name || !formDetails.email || !formDetails.password;
         }
-        if (formDetails.role === 'INSTITUTE') {
+        if (formDetails.role === 'institute') {
             return !formDetails.name || !formDetails.email || !formDetails.password;
         }
         return false;
@@ -136,9 +152,9 @@ const LoginPage = () => {
                                         <label className="flex items-center cursor-pointer">
                                             <input
                                                 type="radio"
-                                                value="CANDIDATE"
-                                                checked={formDetails.role === 'CANDIDATE'}
-                                                onChange={() => setFormDetails({ ...formDetails, role: 'CANDIDATE' })}
+                                                value="candidate"
+                                                checked={formDetails.role === 'candidate'}
+                                                onChange={() => setFormDetails({ ...formDetails, role: 'candidate' })}
                                                 className="text-red-600 focus:ring-red-500"
                                             />
                                             <span className="ml-2 text-gray-700">Candidate</span>
@@ -146,9 +162,9 @@ const LoginPage = () => {
                                         <label className="flex items-center cursor-pointer">
                                             <input
                                                 type="radio"
-                                                value="INSTITUTE"
-                                                checked={formDetails.role === 'INSTITUTE'}
-                                                onChange={() => setFormDetails({ ...formDetails, role: 'INSTITUTE' })}
+                                                value="institute"
+                                                checked={formDetails.role === 'institute'}
+                                                onChange={() => setFormDetails({ ...formDetails, role: 'institute' })}
                                                 className="text-red-600 focus:ring-red-500"
                                             />
                                             <span className="ml-2 text-gray-700">Institute</span>
@@ -156,15 +172,15 @@ const LoginPage = () => {
                                     </div>
                                 </div>
 
-                                {formDetails.role === 'INSTITUTE' && (
+                                {formDetails.role === 'institute' && (
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Institute Name</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">institute Name</label>
                                         <div className="relative">
                                             <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                             <input
                                                 type="text"
                                                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:outline-0"
-                                                placeholder="Institute Name"
+                                                placeholder="institute Name"
                                                 value={formDetails.name}
                                                 onChange={(e) =>
                                                     setFormDetails({
@@ -177,7 +193,7 @@ const LoginPage = () => {
                                     </div>
                                 )}
 
-                                {formDetails.role === 'CANDIDATE' && (
+                                {formDetails.role === 'candidate' && (
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
                                         <div className="relative">

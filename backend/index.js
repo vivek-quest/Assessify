@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require("cors")
 
 const { apiKeyAuth, auth } = require('./middleware/auth');
 const { MONGODB_URI, PORT } = require('./config/config');
@@ -8,6 +9,7 @@ const { ROLE } = require('./config/enum');
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 mongoose.connect(MONGODB_URI, { useUnifiedTopology: true })
     .then(() => console.log('MongoDB connected'))

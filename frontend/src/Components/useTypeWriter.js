@@ -8,13 +8,18 @@ const useTypeWriter = (text, speed = 30) => {
         setDisplayText('');
 
         const timer = setInterval(() => {
-            if (i < text.length) {
-                setDisplayText(prev => prev + text.charAt(i));
-                i++;
-            } else {
+            setDisplayText(prev => prev + text.charAt(i));
+            i++;
+
+            if (i >= text.length) {
                 clearInterval(timer);
             }
         }, speed);
+
+        if (text.length > 0) {
+            setDisplayText(text.charAt(0));
+            i = 1;
+        }
 
         return () => clearInterval(timer);
     }, [text, speed]);

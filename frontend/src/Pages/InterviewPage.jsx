@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Send, Volume2, VolumeOff } from 'lucide-react';
 import VideoPreview from '../Components/VideoPreview';
 import ChatMessage from '../Components/ChatMessage';
-import useFaceDetection from '../Components/useFacedetection';
 import { DashBoard } from '../Components/Dashboard';
 import toast from 'react-hot-toast';
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 const InterviewPage = () => {
     const [isRecording, setIsRecording] = useState(false);
@@ -15,18 +15,22 @@ const InterviewPage = () => {
     const [chat, setChat] = useState([
         { role: 'ai', content: 'Hello! I\'m your AI interviewer. Let\'s begin with your introduction. Please tell me about yourself.' }
     ]);
+    const [isTTSEnabled, setIsTTSEnabled] = useState(false);
 
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const chatContainerRef = useRef(null);
     const screenShareRef = useRef(null);
 
-    const [videoRecorder, setVideoRecorder] = useState(null);
-    const [screenRecorder, setScreenRecorder] = useState(null);
-    const [recordedChunks, setRecordedChunks] = useState([]);
-    const [isTTSEnabled, setIsTTSEnabled] = useState(false);
+    const videoRecorder = useRef(null);
+    const recordedChunks = useRef([]);
 
-    useFaceDetection(videoRef, canvasRef);
+    const {
+        transcript,
+        resetTranscript,
+        listening,
+        browserSupportsSpeechRecognition,
+    } = useSpeechRecognition();
 
     useEffect(() => {
         startCamera();
@@ -45,8 +49,13 @@ const InterviewPage = () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: true,
-                audio: isMicOn
+                audio: isMicOn,
             });
+
+            if (stream.getTracks().length === 0) {
+                throw new Error('No media tracks available in the stream');
+            }
+
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
             }
@@ -54,108 +63,50 @@ const InterviewPage = () => {
             const recorder = new MediaRecorder(stream);
             recorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
-                    setRecordedChunks((prev) => [...prev, event.data]);
+                    recordedChunks.current.push(event.data);
                 }
             };
-            setVideoRecorder(recorder);
+            videoRecorder.current = recorder;
         } catch (err) {
             console.error('Error accessing camera:', err);
+            toast.error('Error accessing camera');
         }
     };
 
-    const stopCamera = async () => {
-        try {
-            await navigator.mediaDevices.getUserMedia({
-                video: false,
-                audio: isMicOn
-            });
-            if (videoRef.current && videoRef.current.srcObject) {
-                const stream = videoRef.current.srcObject;
-                stream.getTracks().forEach(track => track.stop());
-                videoRef.current.srcObject = null;
-            }
-        } catch (error) {
-            console.log('Error stopping camera: ', error);
-            toast.error('Error stopping camera');
-        }
-    };
+    const stopCamera = () => {
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject;
+            const tracks = stream.getTracks();
 
-    const startScreenShare = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-            if (screenShareRef.current) {
-                screenShareRef.current.srcObject = stream;
-            }
-            setIsScreenSharing(true);
-
-            const screenRecorder = new MediaRecorder(stream);
-            screenRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    setRecordedChunks((prev) => [...prev, event.data]);
-                }
-            };
-            setScreenRecorder(screenRecorder);
-        } catch (err) {
-            console.error('Error sharing screen:', err);
-            setIsScreenSharing(false);
-        }
-    };
-
-    const toggleCamera = () => {
-        if (isCameraOn) {
-            stopCamera();
+            tracks.forEach((track) => track.stop());
+            videoRef.current.srcObject = null;
         } else {
-            startCamera();
-        }
-        setIsCameraOn(!isCameraOn);
-    };
-
-    const toggleMic = () => {
-        setIsMicOn(!isMicOn);
-    };
-
-    const handleSend = () => {
-        if (message.trim()) {
-            setChat(prev => [...prev, { role: 'user', content: message }]);
-            setTimeout(() => {
-                setChat(prev => [...prev, {
-                    role: 'ai',
-                    content: 'Thank you for sharing that. Could you elaborate more on your experience with team collaboration?'
-                }]);
-            }, 1000);
-            setMessage('');
-        }
-    };
-
-    const handleKeyPress = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSend();
+            console.warn('No camera stream to stop');
+            toast.error('No camera stream to stop');
         }
     };
 
     const startRecording = () => {
-        if (videoRecorder) {
-            videoRecorder.start();
-        }
-        if (screenRecorder && isScreenSharing) {
-            screenRecorder.start();
+        if (videoRecorder.current) {
+            videoRecorder.current.onerror = (event) => {
+                console.error('MediaRecorder error:', event.error);
+                toast.error(`MediaRecorder error: ${event.error}`);
+            };
+            videoRecorder.current.start();
         }
         setIsRecording(true);
-    };
+    }
 
     const stopRecording = () => {
-        if (videoRecorder) {
-            videoRecorder.stop();
-        }
-        if (screenRecorder && isScreenSharing) {
-            screenRecorder.stop();
+        if (videoRecorder.current) {
+            videoRecorder.current.stop();
+            videoRecorder.current.stream.getTracks().forEach(track => track.stop());
         }
         setIsRecording(false);
     };
 
     const saveRecording = () => {
-        const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+        const blob = new Blob(recordedChunks.current, { type: 'video/mp4' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.style.display = 'none';
@@ -166,14 +117,66 @@ const InterviewPage = () => {
         URL.revokeObjectURL(url);
     };
 
-    const speakText = (text) => {
+    const handleSend = () => {
+        if (message.trim()) {
+            setChat(prev => [...prev, { role: 'user', content: message }]);
+            setTimeout(() => {
+                const aiResponse = 'Thank you for sharing that. Could you elaborate more on your experience with team collaboration?';
+                setChat(prev => [...prev, { role: 'ai', content: aiResponse }]);
+                if (isTTSEnabled) {
+                    speak(aiResponse);
+                }
+                resetTranscript();
+            }, 1000);
+            setMessage('');
+        }
+    };
+
+    const speak = (text) => {
         const utterance = new SpeechSynthesisUtterance(text);
         window.speechSynthesis.speak(utterance);
     };
 
-    const handleTTS = (text) => {
-        if (isTTSEnabled) {
-            speakText(text);
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+        }
+    };
+
+    const toggleMic = () => {
+        if (!isMicOn) {
+            SpeechRecognition.startListening({ continuous: false });
+            setIsMicOn(true);
+        } else {
+            SpeechRecognition.stopListening();
+            setIsMicOn(false);
+        }
+    };
+
+    useEffect(() => {
+        if (transcript) {
+            setMessage(transcript);
+        }
+    }, [transcript]);
+
+    const toggleCamera = () => {
+        setIsCameraOn((prev) => !prev);
+        if (isCameraOn) {
+            stopCamera();
+        } else {
+            startCamera();
+        }
+    };
+
+    const startScreenShare = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+            screenShareRef.current.srcObject = stream;
+            setIsScreenSharing(true);
+        } catch (err) {
+            console.error('Error accessing screen:', err);
+            toast.error('Error accessing screen');
         }
     };
 
@@ -205,16 +208,6 @@ const InterviewPage = () => {
                                 }}
                                 onStartScreenShare={startScreenShare}
                             />
-                            {isScreenSharing && (
-                                <div className="mt-4 bg-black rounded-xl overflow-hidden aspect-video">
-                                    <video
-                                        ref={screenShareRef}
-                                        autoPlay
-                                        playsInline
-                                        className="w-full h-full object-contain"
-                                    />
-                                </div>
-                            )}
                             <div className="bg-white p-6 rounded-xl shadow-sm">
                                 <h2 className="text-lg font-semibold mb-2">Interview Progress</h2>
                                 <div className="flex items-center gap-4">
@@ -269,7 +262,7 @@ const InterviewPage = () => {
                                         </button>
                                         <button
                                             onClick={handleSend}
-                                            className="p-3 rounded-full bg-[#e53935e6] text-white hover:bg-red-700 transition-colors duration-200 hover:text-white"
+                                            className="p-3 rounded-full bg-[#e53935e6] text-white hover:bg-red-700 transition-colors duration-200"
                                         >
                                             <Send size={20} />
                                         </button>
@@ -281,7 +274,6 @@ const InterviewPage = () => {
                 </div>
             </div>
         </DashBoard>
-
     );
 };
 

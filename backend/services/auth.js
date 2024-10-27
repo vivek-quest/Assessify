@@ -48,7 +48,7 @@ class AuthService {
         if (!isMatch) throw new Error('Invalid password');
 
         const token = jwt.sign({ _id: user._id, role: user.role }, JWT_SECRET);
-        return token;
+        return { token, user };
     }
 }
 
