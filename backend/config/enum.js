@@ -4,7 +4,9 @@ const ROLE = {
 }
 
 const ATTEMP_STATUS = {
+    NOT_STARTED: 'not_started',
     PENDING: 'pending',
+    CANCELLED: 'canceled',
     COMPLETED: 'completed',
 }
 
