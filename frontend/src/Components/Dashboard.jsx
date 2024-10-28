@@ -116,5 +116,5 @@ export const LogoIcon = () => {
 };
 
 const DashboardChild = ({ children }) => {
-    return <div className="w-full h-full overflow-auto">{children}</div>;
+    return <div className="w-full h-full overflow-auto hideScrollbar">{children}</div>;
 };

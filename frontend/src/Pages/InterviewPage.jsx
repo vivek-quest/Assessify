@@ -21,7 +21,11 @@ const InterviewPage = () => {
     const [isScreenSharing, setIsScreenSharing] = useState(false);
     const [message, setMessage] = useState('');
     const [chat, setChat] = useState([]);
-    const [isTTSEnabled, setIsTTSEnabled] = useState(false);
+    const [isTTSEnabled, setIsTTSEnabled] = useState(true);
+    const [isAIResponding, setIsAIResponding] = useState(false);
+    const [isInterviewEnded, setIsInterviewEnded] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [voiceTimeout, setVoiceTimeout] = useState(null);
 
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
@@ -32,12 +36,33 @@ const InterviewPage = () => {
     const recordedChunks = useRef([]);
 
     const [auth] = useAtom(AuthAtom);
-
     const { id } = useParams();
     const [interviewDetails, setInterviewDetails] = useState({});
     const [elapsedTime, setElapsedTime] = useState(0);
-
     const [initiateId, setInitiateId] = useState('');
+
+    const {
+        transcript,
+        resetTranscript,
+        listening,
+        browserSupportsSpeechRecognition,
+    } = useSpeechRecognition();
+
+    useEffect(() => {
+        fetchInterviewDetails();
+        startCamera();
+        return () => {
+            stopCamera();
+            clearVoiceTimeout();
+        };
+    }, []);
+
+    const clearVoiceTimeout = () => {
+        if (voiceTimeout) {
+            clearTimeout(voiceTimeout);
+            setVoiceTimeout(null);
+        }
+    };
 
     const fetchInterviewDetails = async () => {
         setLoader(true);
@@ -53,22 +78,7 @@ const InterviewPage = () => {
         } finally {
             setLoader(false);
         }
-    }
-
-    const {
-        transcript,
-        resetTranscript,
-        listening,
-        browserSupportsSpeechRecognition,
-    } = useSpeechRecognition();
-
-    useEffect(() => {
-        fetchInterviewDetails();
-        startCamera();
-        return () => {
-            stopCamera();
-        };
-    }, []);
+    };
 
     useEffect(() => {
         let interval;
@@ -82,15 +92,8 @@ const InterviewPage = () => {
                 });
             }, 60000);
         }
-
         return () => clearInterval(interval);
     }, [isInterviewRunning, interviewDetails?.duration]);
-
-    useEffect(() => {
-        if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-        }
-    }, [chat]);
 
     const startCamera = async () => {
         try {
@@ -98,10 +101,6 @@ const InterviewPage = () => {
                 video: true,
                 audio: isMicOn,
             });
-
-            if (stream.getTracks().length === 0) {
-                throw new Error('No media tracks available in the stream');
-            }
 
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
@@ -124,21 +123,13 @@ const InterviewPage = () => {
         if (videoRef.current && videoRef.current.srcObject) {
             const stream = videoRef.current.srcObject;
             const tracks = stream.getTracks();
-
             tracks.forEach((track) => track.stop());
             videoRef.current.srcObject = null;
-        } else {
-            console.warn('No camera stream to stop');
-            toast.error('No camera stream to stop');
         }
     };
 
     const startRecording = () => {
         if (videoRecorder.current) {
-            videoRecorder.current.onerror = (event) => {
-                console.error('MediaRecorder error:', event.error);
-                toast.error(`MediaRecorder error: ${event.error}`);
-            };
             videoRecorder.current.start();
         }
         setIsRecording(true);
@@ -158,19 +149,31 @@ const InterviewPage = () => {
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = 'recording.mp4';
+        a.download = 'interview-recording.mp4';
         document.body.appendChild(a);
         a.click();
         URL.revokeObjectURL(url);
     };
 
+    const speak = (text) => {
+        setIsSpeaking(true);
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.onend = () => {
+            setIsSpeaking(false);
+        };
+        window.speechSynthesis.speak(utterance);
+    };
+
     const handleSend = async () => {
-        if (message.trim()) {
-            setChat(prev => [...prev, { role: 'user', content: message }]);
+        if (message.trim() && !isAIResponding && !isSpeaking) {
+            const userMessage = message.trim();
+            setChat(prev => [...prev, { role: 'user', content: userMessage }]);
+            setMessage('');
+            setIsAIResponding(true);
 
             try {
-                const response = await continueInterview(message);
-                if (response.status === 'pending') {
+                const response = await continueInterview(userMessage);
+                if (response?.status === 'pending') {
                     const aiResponse = response?.response?.message?.content;
                     setChat(prev => [...prev, { role: 'ai', content: aiResponse }]);
 
@@ -178,44 +181,56 @@ const InterviewPage = () => {
                         speak(aiResponse);
                     }
                 } else {
-                    endInterview();
+                    await endInterview();
+                    setIsInterviewEnded(true);
                 }
-                setMessage('');
             } catch (error) {
                 console.error('Error fetching AI response:', error);
                 toast.error('Something went wrong while fetching the response');
+            } finally {
+                setIsAIResponding(false);
             }
 
             resetTranscript();
-            setMessage('');
-        }
-    };
-
-    const speak = (text) => {
-        const utterance = new SpeechSynthesisUtterance(text);
-        window.speechSynthesis.speak(utterance);
-    };
-
-    const handleKeyPress = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSend();
         }
     };
 
     const toggleMic = () => {
-        if (!isMicOn) {
-            SpeechRecognition.startListening({ continuous: false });
+        if (!isMicOn && !isAIResponding) {
+            SpeechRecognition.startListening({ continuous: true });
             setIsMicOn(true);
+
+            // Set timeout to automatically send message after 2 seconds of silence
+            const timeout = setTimeout(() => {
+                if (transcript.trim()) {
+                    setMessage(transcript);
+                    handleSend();
+                }
+                SpeechRecognition.stopListening();
+                setIsMicOn(false);
+            }, 2000);
+
+            setVoiceTimeout(timeout);
         } else {
             SpeechRecognition.stopListening();
             setIsMicOn(false);
+            clearVoiceTimeout();
         }
     };
 
     useEffect(() => {
         if (transcript) {
             setMessage(transcript);
+            // Reset the voice timeout
+            clearVoiceTimeout();
+            const timeout = setTimeout(() => {
+                if (transcript.trim()) {
+                    handleSend();
+                }
+                SpeechRecognition.stopListening();
+                setIsMicOn(false);
+            }, 2000);
+            setVoiceTimeout(timeout);
         }
     }, [transcript]);
 
@@ -241,6 +256,7 @@ const InterviewPage = () => {
 
     const startInterview = async () => {
         try {
+            setLoader(true);
             let res = await axios.post(
                 `${BACKEND_URL}/candidates/interviews/${id}/attempts`,
                 {},
@@ -249,35 +265,43 @@ const InterviewPage = () => {
             let data = res?.data;
             if (data?.status) {
                 setIsInterviewRunning(true);
+                setIsInterviewEnded(false);
+                setChat([]);
                 startRecording();
-                initiateInterview(data?._id);
                 setInitiateId(data?._id);
+                await initiateInterview(data?._id);
             }
         } catch (error) {
             console.log(error);
             toast.error('Something went wrong, please try again');
+        } finally {
+            setLoader(false);
         }
     };
 
     const initiateInterview = async (iniId) => {
         try {
+            setIsAIResponding(true);
             let res = await axios.post(
-                `${BACKEND_URL}/candidates/interviews/${id}/attempts/${iniId || initiateId}/initiate`,
+                `${BACKEND_URL}/candidates/interviews/${id}/attempts/${iniId}/initiate`,
                 {},
                 { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } }
             );
             let data = res.data;
             if (data.status === "pending") {
-                setChat(prev => [...prev, { role: 'ai', content: data.response?.message?.content }]);
+                const aiMessage = data.response?.message?.content;
+                setChat(prev => [...prev, { role: 'ai', content: aiMessage }]);
                 if (isTTSEnabled) {
-                    speak(data.response?.message?.content);
+                    speak(aiMessage);
                 }
             }
         } catch (error) {
             console.log(error);
             toast.error('Something went wrong, please try again');
+        } finally {
+            setIsAIResponding(false);
         }
-    }
+    };
 
     const continueInterview = async (content) => {
         try {
@@ -290,8 +314,9 @@ const InterviewPage = () => {
         } catch (error) {
             console.log(error);
             toast.error('Something went wrong, please try again');
+            return null;
         }
-    }
+    };
 
     const endInterview = async () => {
         try {
@@ -300,23 +325,29 @@ const InterviewPage = () => {
                 {},
                 { headers: { 'x-api-key': X_API_KEY, 'Authorization': `Bearer ${auth?.token}` } }
             );
-            console.log(res);
+            return res.data;
         } catch (error) {
             console.log(error);
             toast.error('Something went wrong, please try again');
         }
-    }
+    };
 
     const stopInterview = async () => {
         try {
             let res = await endInterview();
+            if (res?.status === 'completed') {
+                const aiMessage = res?.response?.message?.content;
+                setChat(prev => [...prev, { role: 'ai', content: aiMessage }]);
+            }
         } catch (error) {
-
+            console.log(error);
         }
         setIsInterviewRunning(false);
+        setIsInterviewEnded(true);
         stopRecording();
         saveRecording();
-        stopCamera();
+        // setChat([]);
+        setMessage('');
     };
 
     const progressPercentage = (elapsedTime / interviewDetails?.duration) * 100;
@@ -325,7 +356,7 @@ const InterviewPage = () => {
         if (progressPercentage === 100) {
             stopInterview();
         }
-    }, [progressPercentage])
+    }, [progressPercentage]);
 
     return (
         <>
@@ -351,7 +382,7 @@ const InterviewPage = () => {
                                         onClick={startInterview}
                                         className="p-3 rounded-lg bg-[#15ff20e6] text-black hover:bg-green-800 hover:text-white transition-colors duration-200"
                                     >
-                                        Start Interview
+                                        {isInterviewEnded ? 'Start Fresh Interview' : 'Start Interview'}
                                     </button>
                                 )}
                             </div>
@@ -395,24 +426,40 @@ const InterviewPage = () => {
                                 <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
                                     <div>
                                         <h2 className="text-lg font-semibold text-gray-900">AI Interviewer</h2>
-                                        <p className="text-sm text-gray-600">Respond via text or voice</p>
+                                        <p className="text-sm text-gray-600">
+                                            {isAIResponding ? 'AI is responding...' : isSpeaking ? 'AI is speaking...' : 'Respond via text or voice'}
+                                        </p>
                                     </div>
                                     <button
                                         onClick={() => setIsTTSEnabled(!isTTSEnabled)}
-                                        className={`p-3 rounded-full ${isTTSEnabled ? 'bg-[#e53935e6] text-white' : 'bg-gray-100 text-gray-600'
-                                            } hover:bg-red-700 hover:text-white transition-colors duration-200`}
+                                        className={`p-3 rounded-full ${isTTSEnabled ? 'bg-[#e53935e6] text-white' : 'bg-gray-100 text-gray-600'} 
+                                            hover:bg-red-700 hover:text-white transition-colors duration-200`}
+                                        disabled={isAIResponding || isSpeaking}
                                     >
                                         {isTTSEnabled ? <Volume2 size={20} /> : <VolumeOff size={20} />}
                                     </button>
                                 </div>
 
-                                <div
-                                    ref={chatContainerRef}
-                                    className="flex-1 overflow-y-auto p-4 space-y-4"
-                                >
+                                <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 hideScrollbar">
                                     {chat.map((msg, index) => (
-                                        <ChatMessage key={index} role={msg.role} content={msg.content} />
+                                        <ChatMessage
+                                            key={index}
+                                            role={msg.role}
+                                            content={msg.content}
+                                            isLatest={index === chat.length - 1 && msg.role === 'ai'}
+                                        />
                                     ))}
+                                    {isAIResponding && (
+                                        <div className="flex justify-start">
+                                            <div className="bg-gray-100 rounded-lg p-3 max-w-[80%]">
+                                                <div className="animate-pulse flex space-x-2">
+                                                    <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                                                    <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                                                    <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="p-4 border-t bg-white">
@@ -420,21 +467,31 @@ const InterviewPage = () => {
                                         <textarea
                                             value={message}
                                             onChange={(e) => setMessage(e.target.value)}
-                                            onKeyDown={handleKeyPress}
-                                            placeholder="Type your response or click the mic to speak..."
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleSend();
+                                                }
+                                            }}
+                                            placeholder={isInterviewEnded ? 'Interview ended' : 'Type your response or click the mic to speak...'}
                                             className="flex-1 resize-none rounded-lg border-gray-300 focus:ring-red-500 focus:border-red-500 min-h-[80px] focus:outline-0"
+                                            disabled={!isInterviewRunning || isInterviewEnded || isAIResponding || isSpeaking}
                                         />
                                         <div className="flex flex-col gap-2">
                                             <button
                                                 onClick={toggleMic}
-                                                className={`p-3 rounded-full ${listening ? 'bg-green-600 text-white' : isMicOn ? 'bg-[#e53935e6] text-white' : 'bg-gray-100 text-gray-600'
+                                                className={`p-3 rounded-full ${listening ? 'bg-green-600 text-white' :
+                                                        isMicOn ? 'bg-[#e53935e6] text-white' :
+                                                            'bg-gray-100 text-gray-600'
                                                     } hover:bg-red-700 hover:text-white transition-colors duration-200`}
+                                                disabled={!isInterviewRunning || isInterviewEnded || isAIResponding || isSpeaking}
                                             >
                                                 {(listening || isMicOn) ? <Mic size={20} /> : <MicOff size={20} />}
                                             </button>
                                             <button
                                                 onClick={handleSend}
                                                 className="p-3 rounded-full bg-[#e53935e6] text-white hover:bg-red-700 transition-colors duration-200"
+                                                disabled={!message.trim() || !isInterviewRunning || isInterviewEnded || isAIResponding || isSpeaking}
                                             >
                                                 <Send size={20} />
                                             </button>
