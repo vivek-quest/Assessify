@@ -1,19 +1,18 @@
 import React from 'react';
-import useTypeWriter from './useTypeWriter';
+import useFadeIn from './useFadeIn';
 
-const ChatMessage = ({ role, content }) => {
-    const typeWriterText = useTypeWriter(content);
-    const displayText = role === 'ai' ? typeWriterText : content;
+const ChatMessage = ({ role, content, isLatest }) => {
+    const { displayText, isVisible } = useFadeIn(content);
 
     return (
-        <div className={`flex ${role === 'ai' ? 'justify-start' : 'justify-end'}`}>
+        <div className={`flex ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
-                className={`max-w-[80%] p-4 rounded-2xl ${role === 'ai'
-                    ? 'bg-gray-100 text-gray-900'
-                    : 'bg-red-600 text-white'
-                    }`}
+                className={`rounded-2xl p-4 max-w-[80%] transition-opacity duration-300 ${role === 'user'
+                        ? 'bg-[#e53935e6] text-white'
+                        : 'bg-gray-100 text-gray-800'
+                    } ${isLatest && !isVisible ? 'opacity-0' : 'opacity-100'}`}
             >
-                <p className="text-sm">{displayText}</p>
+                <p className="whitespace-pre-wrap break-words">{isLatest ? displayText : content}</p>
             </div>
         </div>
     );
