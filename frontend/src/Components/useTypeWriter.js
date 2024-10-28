@@ -1,28 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const useTypeWriter = (text, speed = 30) => {
     const [displayText, setDisplayText] = useState('');
 
-    useEffect(() => {
-        let i = 0;
+    const typeText = useCallback(() => {
+        const textArray = text.split('');
+        let currentIndex = 0;
+
         setDisplayText('');
 
-        const timer = setInterval(() => {
-            setDisplayText(prev => prev + text.charAt(i));
-            i++;
-
-            if (i >= text.length) {
-                clearInterval(timer);
+        const interval = setInterval(() => {
+            if (currentIndex < textArray.length) {
+                setDisplayText(prev => prev + textArray[currentIndex]);
+                currentIndex++;
+            } else {
+                clearInterval(interval);
             }
         }, speed);
 
-        if (text.length > 0) {
-            setDisplayText(text.charAt(0));
-            i = 1;
-        }
-
-        return () => clearInterval(timer);
+        return () => clearInterval(interval);
     }, [text, speed]);
+
+    useEffect(() => {
+        const cleanup = typeText();
+        return () => {
+            if (cleanup) cleanup();
+        };
+    }, [typeText]);
 
     return displayText;
 };

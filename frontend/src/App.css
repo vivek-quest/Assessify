@@ -18,7 +18,45 @@
     opacity: 80%;
 }
 
-body::-webkit-scrollbar,
+body::-webkit-scrollbar {
+    display: none;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #e53935e6 #f3f4f6;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f3f4f6;
+    border-radius: 20px;
+    margin: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #e53935e6;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 2px solid #f3f4f6;
+    transition: all 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #d32f2f;
+    border-width: 1px;
+}
+
+.hideScrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
 .hideScrollbar::-webkit-scrollbar {
     display: none;
 }
@@ -135,4 +173,16 @@ body::-webkit-scrollbar,
 .flows-pagination span.disabled {
     --color: var(--Neutral-Black-300, #4C4C4C);
     cursor: not-allowed;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
