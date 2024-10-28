@@ -10,7 +10,7 @@ const client = new OpenAI({
 class InterviewService {
     static createInitialPrompt(attempt) {
         const stepsToFollow = [
-            'Start by introducing yourself in a randomized way, including your name and role as an interviewer.',
+            'Start by introducing yourself in a randomized way (e.g. Your name can be "John Doe"), including your name and role as an interviewer.',
             'Proceed with asking questions one at a time, allowing for thoughtful responses.',
             'Keep the tone professional but encouraging, making candidates feel comfortable sharing their thoughts.',
             'Follow up with additional questions based on their answers to gather deeper insights.',
