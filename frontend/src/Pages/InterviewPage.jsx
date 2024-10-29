@@ -328,6 +328,7 @@ const InterviewPage = () => {
     };
 
     const endInterview = async () => {
+        setLoader(true);
         try {
             let res = await axios.post(
                 `${BACKEND_URL}/candidates/interviews/${id}/attempts/${initiateId}/end`,
@@ -338,6 +339,8 @@ const InterviewPage = () => {
         } catch (error) {
             console.log(error);
             toast.error('Something went wrong, please try again');
+        } finally {
+            setLoader(false);
         }
     };
 
