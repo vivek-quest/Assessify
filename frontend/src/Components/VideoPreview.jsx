@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Camera, CameraOff, Mic, MicOff, MonitorUp } from 'lucide-react';
 import ControlButton from './ControlButton';
+import toast from 'react-hot-toast';
 
 const VideoPreview = ({
     videoRef,
@@ -63,7 +64,9 @@ const VideoPreview = ({
                     <ControlButton
                         icon={isCameraOn ? <Camera size={20} /> : <CameraOff size={20} />}
                         active={isCameraOn}
-                        onClick={!isInterviewRunning && onToggleCamera}
+                        onClick={!isInterviewRunning ? onToggleCamera : () => {
+                            toast.error("You can't turn off camera while interview is running.");
+                        }}
                     />
                     <ControlButton
                         icon={<MonitorUp size={20} />}
