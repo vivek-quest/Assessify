@@ -419,6 +419,7 @@ const InterviewPage = () => {
                                         }
                                     }}
                                     onStartScreenShare={startScreenShare}
+                                    isInterviewRunning={isInterviewRunning}
                                 />
                                 <div className="bg-white p-6 rounded-xl shadow-sm">
                                     <h2 className="text-lg font-semibold mb-2">Interview Progress</h2>

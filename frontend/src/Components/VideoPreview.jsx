@@ -13,6 +13,7 @@ const VideoPreview = ({
     onToggleMic,
     onToggleRecording,
     onStartScreenShare,
+    isInterviewRunning
 }) => {
     const [isControlsVisible, setIsControlsVisible] = useState(true);
     useEffect(() => {
@@ -62,7 +63,7 @@ const VideoPreview = ({
                     <ControlButton
                         icon={isCameraOn ? <Camera size={20} /> : <CameraOff size={20} />}
                         active={isCameraOn}
-                        onClick={onToggleCamera}
+                        onClick={!isInterviewRunning && onToggleCamera}
                     />
                     <ControlButton
                         icon={<MonitorUp size={20} />}
